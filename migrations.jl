@@ -1,3 +1,4 @@
+using SQLite
 using ZulipSnippetBot
 
 include("configuration.jl")
