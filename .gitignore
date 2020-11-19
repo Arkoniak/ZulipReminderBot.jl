@@ -1,3 +1,4 @@
 Manifest.toml
 configuration.jl
 misc*
+db.sqlite

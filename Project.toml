@@ -1,7 +1,7 @@
 name = "ZulipSnippetBot"
 uuid = "244fe89c-2bb9-465e-a578-ea4cafb43ecf"
 authors = ["Andrey Oskin <skoffer@arkoniak.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
@@ -9,6 +9,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
+SimpleMock = "a896ed2c-15a5-4479-b61d-a0e88e2a1d25"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 
 [extras]

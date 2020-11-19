@@ -4,7 +4,10 @@ using HTTP
 using JSON3
 using StructTypes
 using Dates
+using SQLite
+using DBInterface
 
+include("migrations.jl")
 export setupbot!
 
 const SYMBOLS = ('A':'Z'..., 'a':'z'..., '0':'9'...)
@@ -104,12 +107,12 @@ function process_show(obj::ZulipRequest, db, opts)
     @info "show"
     m = match(r"^show\s+([A-Za-z0-9]+)$", obj.data)
     if isnothing(m)
-        return "Unknown token in `show` command"
+        return "No codeid is given in `show` command"
     end
     try
         r = map(x -> x.snippet, get_by_code(db, m[1]))
         if isempty(r)
-            return "Code id $(m[1]) is not found"
+            return "Codeid $(m[1]) is not found"
         end
         return r[1]
     catch err

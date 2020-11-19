@@ -1,8 +1,9 @@
 module TestBasic
 using ZulipSnippetBot
-using ZulipSnippetBot: ZulipRequest, process, OPTS
+using ZulipSnippetBot: ZulipRequest, process, OPTS, Message
 using JSON3
 using Test
+using SQLite
 
 f = readlines(joinpath(@__DIR__, "data", "requests.json"))
 const PRIVATE_MSG = f[1]
@@ -53,4 +54,20 @@ end
     @test startswith(content(process(msg, nothing, OPTS[])), "Currently following")    
 end
 
+@testset "save/show" begin
+    dbpath, _ = mktemp()
+    db = SQLite.DB(dbpath)
+    ZulipSnippetBot.up(db)
+
+    msg = ZulipRequest("save #qwe abc", TOKEN, Message(1))
+    res = content(process(msg, db, OPTS[]))
+    @test startswith(res, "Snippet codeid: ")
+
+    cid = match(r"Snippet codeid: `([^`]+)`", res)[1]
+    msg = ZulipRequest("show $(cid)", TOKEN, Message(1))
+    @test content(process(msg, db, OPTS[])) == "abc"
+
+    msg = ZulipRequest("show xxx", TOKEN, Message(1))
+    @test content(process(msg, db, OPTS[])) == "Codeid xxx is not found"
+end
 end # module
