@@ -70,6 +70,17 @@ function store_snippet(db, user_id, code_id, snippet, tags)
     DBInterface.execute(stmt, (code_id, user_id, snippet, tags, ts))
 end
 
+function load_snippets(db, user_id)
+    query = """
+    SELECT code, snippet, tags
+    FROM snippets
+    WHERE user_id = ?
+    """
+
+    stmt = SQLite.Stmt(db, query)
+    DBInterface.execute(stmt, (user_id, ))
+end
+
 ########################################
 # Processing
 ########################################
@@ -124,7 +135,6 @@ end
 function process_save(obj::ZulipRequest, db, opts)
     @info "save"
     hashtags = String[]
-    state = "hashtags"
     length(obj.data) < 6 && return "Not enough arguments in `save` command"
     s = obj.data[6:end]
 
@@ -135,7 +145,7 @@ function process_save(obj::ZulipRequest, db, opts)
         s = m[2]
     end
     
-    hashtags = join(hashtags, ",")
+    hashtags = join(hashtags, " ")
     token = codeid()
     try
         store_snippet(db, obj.message.sender_id, token, s, hashtags)
@@ -144,6 +154,34 @@ function process_save(obj::ZulipRequest, db, opts)
         @error "DB Error" exception=(err, catch_backtrace())
         return "Server error, please try one more time. Later. Sorry."
     end
+end
+
+function process_list(obj::ZulipRequest, db, opts)
+    @info "list"
+    snippets = load_snippets(db, obj.message.sender_id)
+    snippets = map(x -> (; snippet = x.snippet, code = x.code, hashtags = x.tags, tags = split(x.tags, " ")), snippets)
+    if length(obj.data) >= 6
+        hashtags = String[]
+        s = obj.data[6:end]
+
+        while true
+            m = match(r"^\s*(#[^\s]+)\s*(.*)"s, s)
+            isnothing(m) && break
+            push!(hashtags, m[1])
+            s = m[2]
+        end
+        snippets = filter(x -> !isempty(intersect(hashtags, x.tags)), snippets)
+    end
+    
+    isempty(snippets) && return "No snippets found"
+
+    io = IOBuffer()
+    for snippet in snippets
+        println(io, "**codeid**: ", snippet.code, ", **tags**: ", snippet.hashtags)
+        println(io, snippet.snippet, "\n")
+    end
+    res = strip(String(take!(io)))
+    return res
 end
 
 function process_help(obj::ZulipRequest, db, opts)
