@@ -1,9 +1,10 @@
 using HTTP
 using JSON3
-using ZulipSnipperBot
+using SQLite
+using ZulipSnippetBot
 
 include("configuration.jl")
 setupbot!(token = TOKEN, host = HOST, port = PORT)
 const db = SQLite.DB(DB)
 
-ZulipSnipperBot.run(db)
+ZulipSnippetBot.run(db)

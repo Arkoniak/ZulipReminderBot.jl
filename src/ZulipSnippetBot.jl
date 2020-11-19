@@ -112,7 +112,8 @@ function process_show(obj::ZulipRequest, db, opts)
             return "Code id $(m[1]) is not found"
         end
         return r[1]
-    catch Exception
+    catch err
+        @error exception=(err, catch_backtrace())
         return "Server error, please try one more time. Later. Sorry."
     end
 end
@@ -136,7 +137,8 @@ function process_save(obj::ZulipRequest, db, opts)
     try
         store_snippet(db, obj.message.sender_id, token, s, hashtags)
         return "Snippet codeid: `$token`"
-    catch Exception
+    catch err
+        @error "DB Error" exception=(err, catch_backtrace())
         return "Server error, please try one more time. Later. Sorry."
     end
 end
