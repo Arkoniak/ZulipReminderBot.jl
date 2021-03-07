@@ -24,7 +24,7 @@ mutable struct ZulipMessage
     type::String
     stream_id::Int
     subject::String
-    display_recepient::String
+    display_recipient::String
 end
 ZulipMessage() = ZulipMessage(-1, -1, "", -1, "", "")
 StructTypes.StructType(::Type{ZulipMessage}) = StructTypes.Mutable()

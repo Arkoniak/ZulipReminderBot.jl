@@ -43,8 +43,9 @@ function process(obj::ZulipRequest, channel, opts)
     status, resp = validate(obj, opts)
     !status && return JSON3.write((; content = resp))
     
-    curts = Dates.value(now()) - Dates.UNIXEPOCH + 5
-    msg = Message(obj.message.display_recepient, obj.message.subject, "Scheduled Hello $(obj.data)")
+    # Time is in milliseconds
+    curts = Dates.value(now()) - Dates.UNIXEPOCH + 5_000
+    msg = Message(obj.message.display_recipient, obj.message.subject, "Scheduled Hello $(obj.data)")
     put!(channel, TimedMessage(curts, msg))
     resp = "Message is scheduled on $(unix2datetime(curts))"
 
@@ -76,11 +77,11 @@ struct TimedMessage
     msg::Message
 end
 
-function cron_worker(input, output, sleeptime = 1)
+function cron_worker(input, output, sleepduration = 1)
     sched = TimedMessage[]
     sorted = true
     while true
-        sleep(sleeptime)
+        sleep(sleepduration)
         while isready(input)
             sorted = false
             datain = take!(input)
@@ -89,12 +90,16 @@ function cron_worker(input, output, sleeptime = 1)
         if !sorted
             sort!(sched, by = x -> x.ts, rev = true)
         end
+        curts = Dates.value(now()) - Dates.UNIXEPOCH
         isempty(sched) && continue
         curts = Dates.value(now()) - Dates.UNIXEPOCH
+
         while !isempty(sched)
             if curts > sched[end].ts
                 tmsg = pop!(sched)
                 put!(output, tmsg.msg)
+            else
+                break
             end
         end
     end
@@ -102,21 +107,25 @@ end
 
 function msg_worker(input)
     while true
-        msg = take!(input)
-        sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
+          msg = take!(input)
+          resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
+          println(resp)
     end
 end
 
 function run(db, opts = OPTS[])
     inmsg_channel = Channel{TimedMessage}(1000)
-    outmsg_channel = Channel{RemMessage}(1000)
+    outmsg_channel = Channel{Message}(1000)
     @async cron_worker(inmsg_channel, outmsg_channel)
     @async msg_worker(outmsg_channel)
     
+    host = opts.host
+    port = opts.port
     println("Starting Reminder Bot server on $host:$port")
 
     HTTP.serve(opts.host, opts.port) do http
         obj = JSON3.read(HTTP.payload(http), ZulipRequest)
+        println(obj)
         resp = process(obj, inmsg_channel, opts)
 
         return HTTP.Response(resp)

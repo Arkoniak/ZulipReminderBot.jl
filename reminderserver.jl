@@ -16,4 +16,4 @@ setupbot!(token = cfg["REMINDER_BOT_TOKEN"],
 
 const db = SQLite.DB(cfg["REMINDER_BOT_DB"])
 
-ZulipReminderBot.run()
+ZulipReminderBot.run(db)
