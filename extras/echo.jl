@@ -5,7 +5,10 @@ using JSON3
 cfg = DotEnv.config()
 
 port = parse(Int, cfg["ZULIP_ECHOBOT_PORT"])
-HTTP.serve("127.0.0.1", port) do http
+host = "127.0.0.1"
+# TODO: Change all print to log
+println("Starting echo service on $host:$port")
+HTTP.serve(host, port) do http
   obj = JSON3.read(HTTP.payload(http))
   println(obj)
   println("")
