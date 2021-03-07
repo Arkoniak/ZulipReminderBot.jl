@@ -1,7 +1,7 @@
-name = "ZulipSnippetBot"
-uuid = "244fe89c-2bb9-465e-a578-ea4cafb43ecf"
+name = "ZulipReminderBot"
+uuid = "11775a2c-a7af-4390-9adb-bea59bbba815"
 authors = ["Andrey Oskin <skoffer@arkoniak.com>"]
-version = "0.1.1"
+version = "0.1.0"
 
 [deps]
 DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"

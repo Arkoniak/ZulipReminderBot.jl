@@ -1,7 +1,11 @@
+using DotEnv
 using HTTP
 using JSON3
 
-HTTP.serve("127.0.0.1", 9174) do http
+cfg = DotEnv.config()
+
+port = parse(Int, cfg["ZULIP_ECHOBOT_PORT"])
+HTTP.serve("127.0.0.1", port) do http
   obj = JSON3.read(HTTP.payload(http))
   println(obj)
   println("")
