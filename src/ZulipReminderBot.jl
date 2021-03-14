@@ -39,7 +39,7 @@ function validate(obj::ZulipRequest, opts)
     return true, ""
 end
 
-function process(obj::ZulipRequest, channel, opts)
+function process(obj::ZulipRequest, channel, opts = OPTS[])
     status, resp = validate(obj, opts)
     !status && return JSON3.write((; content = resp))
     
@@ -47,7 +47,7 @@ function process(obj::ZulipRequest, channel, opts)
     curts = Dates.value(now()) - Dates.UNIXEPOCH + 5_000
     msg = Message(obj.message.display_recipient, obj.message.subject, "Scheduled Hello $(obj.data)")
     put!(channel, TimedMessage(curts, msg))
-    resp = "Message is scheduled on $(unix2datetime(curts))"
+    resp = "Message is scheduled on $(unix2datetime(curts/1000.0))"
 
     # resp = if startswith(obj.data, "timezone")
     #     process_timezone(obj, db, opts)
@@ -121,11 +121,13 @@ function run(db, opts = OPTS[])
     
     host = opts.host
     port = opts.port
-    println("Starting Reminder Bot server on $host:$port")
+    @info "Starting Reminder Bot server on $host:$port"
 
     HTTP.serve(opts.host, opts.port) do http
-        obj = JSON3.read(HTTP.payload(http), ZulipRequest)
-        println(obj)
+        obj = String(HTTP.payload(http))
+        @debug obj
+        obj = JSON3.read(obj, ZulipRequest)
+        @info obj
         resp = process(obj, inmsg_channel, opts)
 
         return HTTP.Response(resp)
