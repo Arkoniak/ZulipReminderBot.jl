@@ -4,6 +4,8 @@ struct Opts
     port::Int
 end
 const OPTS = Ref(Opts("", "127.0.0.1", 9174))
+read_port(port::Integer) = port
+read_port(port) = parse(Int, port)
 
 function setupbot!(; token = OPTS[].token,
                      host = OPTS[].host, 
@@ -11,7 +13,7 @@ function setupbot!(; token = OPTS[].token,
                      email = "",
                      apikey = "",
                      ep = "")
-    OPTS[] = Opts(token, host, parse(Int, port))
+    OPTS[] = Opts(token, host, read_port(port))
     ZulipClient(email = email, apikey = apikey, ep = ep)
 end
 
