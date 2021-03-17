@@ -1,7 +1,9 @@
 ########################################
 # Database functionality
 ########################################
-tablename(::TimedMessage) = "messages"
+tablename(::Type{TimedMessage}) = "messages"
+idproperty(::Type{TimedMessage}) = :id
+autoincrement(::Type{TimedMessage}) = :id
 
 # function get_by_code(db, code_id)
 #     query = """

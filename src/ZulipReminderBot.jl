@@ -44,7 +44,7 @@ end
 
 curts() = Dates.value(now()) - Dates.UNIXEPOCH
 
-function process(obj::ZulipRequest, channel, ts, opts = OPTS[])
+function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     status, resp = validate(obj, opts)
     !status && return JSON3.write((; content = resp))
     
@@ -52,6 +52,8 @@ function process(obj::ZulipRequest, channel, ts, opts = OPTS[])
     exects = ts + 5_000
     msg = Message(obj.message.display_recipient, obj.message.subject, "Scheduled Hello $(obj.data)")
     tmsg = TimedMessage(ts, exects, msg)
+    tmsg = insert(db, tmsg)
+    @debug tmsg
     put!(channel, tmsg)
     resp = "Message is scheduled on $(unix2datetime(exects/1000.0))"
 
@@ -82,14 +84,13 @@ function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
             push!(sched, datain)
         end
         if !sorted
-            sort!(sched, by = x -> x.ts, rev = true)
+            sort!(sched, by = x -> x.exects, rev = true)
         end
-        curts = Dates.value(now()) - Dates.UNIXEPOCH
         isempty(sched) && continue
-        curts = Dates.value(now()) - Dates.UNIXEPOCH
+        ts = curts()
 
         while !isempty(sched)
-            if curts > sched[end].ts
+            if ts >= sched[end].exects
                 tmsg = pop!(sched)
                 put!(output, tmsg.msg)
             else
@@ -101,9 +102,14 @@ end
 
 function msg_worker(input)
     while true
-          msg = take!(input)
-          resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
-          @info resp
+        try
+            msg = take!(input)
+            @debug msg
+            resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
+            @debug resp
+        catch err
+            @error err
+        end
     end
 end
 
@@ -123,7 +129,7 @@ function run(db, opts = OPTS[])
         @debug obj
         obj = JSON3.read(obj, ZulipRequest)
         @info obj
-        resp = process(obj, inmsg_channel, ts, opts)
+        resp = process(obj, db, inmsg_channel, ts, opts)
 
         return HTTP.Response(resp)
     end

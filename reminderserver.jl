@@ -14,6 +14,6 @@ setupbot!(token = cfg["REMINDER_BOT_TOKEN"],
           apikey = cfg["REMINDER_BOT_API_KEY"],
           ep = cfg["REMINDER_BOT_ZULIPCHAT"])
 
-const db = SQLite.DB(cfg["REMINDER_BOT_DB"])
+# const db = SQLite.DB(cfg["REMINDER_BOT_DB"])
 
-ZulipReminderBot.run(db)
+ZulipReminderBot.run(conn)
