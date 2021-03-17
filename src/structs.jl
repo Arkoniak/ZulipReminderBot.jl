@@ -38,3 +38,19 @@ mutable struct ZulipRequest
 end
 ZulipRequest() = ZulipRequest("", "", ZulipMessage())
 StructTypes.StructType(::Type{ZulipRequest}) = StructTypes.Mutable()
+
+struct Message
+    stream::String
+    topic::String
+    content::String
+end
+StructTypes.StructType(::Type{Message}) = StructTypes.OrderedStruct()
+
+struct TimedMessage
+    id::Int
+    createts::Int
+    exects::Int
+    msg::Message
+end
+StructTypes.StructType(::Type{TimedMessage}) = StructTypes.OrderedStruct()
+TimedMessage(createts, exects, msg) = TimedMessage(-1, createts, exects, msg)

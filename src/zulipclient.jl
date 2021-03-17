@@ -1,9 +1,10 @@
 struct ZulipClient
+    baseep::String
     ep::String
     headers::Vector{Pair{String, String}}
 end
 
-const ZulipOpts = Ref(ZulipClient("", []))
+const ZulipOpts = Ref(ZulipClient("", "", []))
 
 function ZulipClient(; email = "", apikey = "", ep = "https://julialang.zulipchat.com", api_version = "v1", use_globally = true)
     if isempty(email) || isempty(apikey)
@@ -14,7 +15,7 @@ function ZulipClient(; email = "", apikey = "", ep = "https://julialang.zulipcha
     headers = ["Authorization" => "Basic " * key, "Content-Type" => "application/x-www-form-urlencoded"]
     endpoint = ep * "/api/" * api_version * "/"
 
-    client = ZulipClient(endpoint, headers)
+    client = ZulipClient(ep, endpoint, headers)
     if use_globally
         ZulipOpts[] = client
     end

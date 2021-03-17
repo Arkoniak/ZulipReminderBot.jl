@@ -1,10 +1,7 @@
-using SQLite
-using ZulipSnippetBot
+using ZulipReminderBot
 
 include("configuration.jl")
 
-db = SQLite.DB(DB)
-
-ZulipSnippetBot.up(db)
+ZulipReminderBot.up(conn)
 
 # There should be `down` function and some way to control db version...

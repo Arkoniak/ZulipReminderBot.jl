@@ -7,12 +7,15 @@ using StructTypes
 using Dates
 using SQLite
 using DBInterface
+using Strapping
 using TimeZones
+using Setfield
 
 include("structs.jl")
+include("miniorm.jl")
+include("db_utils.jl")
 include("migrations.jl")
 include("zulipclient.jl")
-include("db_utils.jl")
 include("processors.jl")
 export setupbot!
 
@@ -39,15 +42,22 @@ function validate(obj::ZulipRequest, opts)
     return true, ""
 end
 
-function process(obj::ZulipRequest, channel, opts = OPTS[])
+curts() = Dates.value(now()) - Dates.UNIXEPOCH
+
+function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     status, resp = validate(obj, opts)
     !status && return JSON3.write((; content = resp))
     
     # Time is in milliseconds
-    curts = Dates.value(now()) - Dates.UNIXEPOCH + 5_000
-    msg = Message(obj.message.display_recipient, obj.message.subject, "Scheduled Hello $(obj.data)")
-    put!(channel, TimedMessage(curts, msg))
-    resp = "Message is scheduled on $(unix2datetime(curts/1000.0))"
+    exects = ts + 5_000
+    content = ZulipOpts[].baseep * "/#narrow/stream/$(obj.message.stream_id)-$(HTTP.escape(obj.message.display_recipient))/topic/$(HTTP.escape(obj.message.subject))/near/$(obj.message.id)\n"
+    content *= obj.data
+    msg = Message(obj.message.display_recipient, obj.message.subject, content)
+    tmsg = TimedMessage(ts, exects, msg)
+    tmsg = insert(db, tmsg)
+    @debug tmsg
+    put!(channel, tmsg)
+    resp = "Message is scheduled on $(unix2datetime(exects/1000.0))"
 
     # resp = if startswith(obj.data, "timezone")
     #     process_timezone(obj, db, opts)
@@ -65,39 +75,28 @@ end
 ########################################
 # Server
 ########################################
-struct Message
-    stream::String
-    topic::String
-    content::String
-end
 
-
-struct TimedMessage
-    ts::Int
-    msg::Message
-end
-
-function cron_worker(input, output, sleepduration = 1)
-    sched = TimedMessage[]
+function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
     sorted = true
     while true
         sleep(sleepduration)
+        lock(input)
         while isready(input)
             sorted = false
             datain = take!(input)
             push!(sched, datain)
         end
+        unlock(input)
         if !sorted
-            sort!(sched, by = x -> x.ts, rev = true)
+            sort!(sched, by = x -> x.exects, rev = true)
         end
-        curts = Dates.value(now()) - Dates.UNIXEPOCH
         isempty(sched) && continue
-        curts = Dates.value(now()) - Dates.UNIXEPOCH
+        ts = curts()
 
         while !isempty(sched)
-            if curts > sched[end].ts
+            if ts >= sched[end].exects
                 tmsg = pop!(sched)
-                put!(output, tmsg.msg)
+                put!(output, tmsg)
             else
                 break
             end
@@ -105,30 +104,48 @@ function cron_worker(input, output, sleepduration = 1)
     end
 end
 
-function msg_worker(input)
+function populate(db, input)
+    @info "populate"
+    msgs = select(db, Vector{TimedMessage})
+    for msg in msgs
+        @info msg
+        put!(input, msg)
+    end
+end
+
+function msg_worker(db, input)
     while true
-          msg = take!(input)
-          resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
-          println(resp)
+        try
+            msg = take!(input)
+            @debug msg
+            resp = sendMessage(type = "stream", to = msg.msg.stream, topic = msg.msg.topic, content = msg.msg.content)
+            delete(db, msg)
+            @debug resp
+        catch err
+            @error err
+        end
     end
 end
 
 function run(db, opts = OPTS[])
     inmsg_channel = Channel{TimedMessage}(1000)
-    outmsg_channel = Channel{Message}(1000)
+    outmsg_channel = Channel{TimedMessage}(1000)
     @async cron_worker(inmsg_channel, outmsg_channel)
-    @async msg_worker(outmsg_channel)
+    @async msg_worker(db, outmsg_channel)
     
     host = opts.host
     port = opts.port
     @info "Starting Reminder Bot server on $host:$port"
 
+    populate(db, inmsg_channel)
+
     HTTP.serve(opts.host, opts.port) do http
+        ts = curts()
         obj = String(HTTP.payload(http))
         @debug obj
         obj = JSON3.read(obj, ZulipRequest)
         @info obj
-        resp = process(obj, inmsg_channel, opts)
+        resp = process(obj, db, inmsg_channel, ts, opts)
 
         return HTTP.Response(resp)
     end
