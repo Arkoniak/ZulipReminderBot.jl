@@ -7,12 +7,15 @@ using StructTypes
 using Dates
 using SQLite
 using DBInterface
+using Strapping
 using TimeZones
+using Setfield
 
 include("structs.jl")
+include("miniorm.jl")
+include("db_utils.jl")
 include("migrations.jl")
 include("zulipclient.jl")
-include("db_utils.jl")
 include("processors.jl")
 export setupbot!
 
@@ -39,15 +42,18 @@ function validate(obj::ZulipRequest, opts)
     return true, ""
 end
 
-function process(obj::ZulipRequest, channel, opts = OPTS[])
+curts() = Dates.value(now()) - Dates.UNIXEPOCH
+
+function process(obj::ZulipRequest, channel, ts, opts = OPTS[])
     status, resp = validate(obj, opts)
     !status && return JSON3.write((; content = resp))
     
     # Time is in milliseconds
-    curts = Dates.value(now()) - Dates.UNIXEPOCH + 5_000
+    exects = ts + 5_000
     msg = Message(obj.message.display_recipient, obj.message.subject, "Scheduled Hello $(obj.data)")
-    put!(channel, TimedMessage(curts, msg))
-    resp = "Message is scheduled on $(unix2datetime(curts/1000.0))"
+    tmsg = TimedMessage(ts, exects, msg)
+    put!(channel, tmsg)
+    resp = "Message is scheduled on $(unix2datetime(exects/1000.0))"
 
     # resp = if startswith(obj.data, "timezone")
     #     process_timezone(obj, db, opts)
@@ -65,20 +71,8 @@ end
 ########################################
 # Server
 ########################################
-struct Message
-    stream::String
-    topic::String
-    content::String
-end
 
-
-struct TimedMessage
-    ts::Int
-    msg::Message
-end
-
-function cron_worker(input, output, sleepduration = 1)
-    sched = TimedMessage[]
+function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
     sorted = true
     while true
         sleep(sleepduration)
@@ -109,7 +103,7 @@ function msg_worker(input)
     while true
           msg = take!(input)
           resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
-          println(resp)
+          @info resp
     end
 end
 
@@ -124,11 +118,12 @@ function run(db, opts = OPTS[])
     @info "Starting Reminder Bot server on $host:$port"
 
     HTTP.serve(opts.host, opts.port) do http
+        ts = curts()
         obj = String(HTTP.payload(http))
         @debug obj
         obj = JSON3.read(obj, ZulipRequest)
         @info obj
-        resp = process(obj, inmsg_channel, opts)
+        resp = process(obj, inmsg_channel, ts, opts)
 
         return HTTP.Response(resp)
     end

@@ -38,3 +38,16 @@ mutable struct ZulipRequest
 end
 ZulipRequest() = ZulipRequest("", "", ZulipMessage())
 StructTypes.StructType(::Type{ZulipRequest}) = StructTypes.Mutable()
+
+struct Message
+    stream::String
+    topic::String
+    content::String
+end
+
+struct TimedMessage
+    id::Int
+    createts::Int
+    exects::Int
+    msg::Message
+end
