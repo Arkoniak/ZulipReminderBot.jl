@@ -50,7 +50,9 @@ function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     
     # Time is in milliseconds
     exects = ts + 5_000
-    msg = Message(obj.message.display_recipient, obj.message.subject, "Scheduled Hello $(obj.data)")
+    content = ZulipOpts[].baseep * "/#narrow/stream/$(obj.message.stream_id)-$(HTTP.escape(obj.message.display_recipient))/topic/$(HTTP.escape(obj.message.subject))/near/$(obj.message.id)\n"
+    content *= obj.data
+    msg = Message(obj.message.display_recipient, obj.message.subject, content)
     tmsg = TimedMessage(ts, exects, msg)
     tmsg = insert(db, tmsg)
     @debug tmsg
@@ -78,11 +80,13 @@ function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
     sorted = true
     while true
         sleep(sleepduration)
+        lock(input)
         while isready(input)
             sorted = false
             datain = take!(input)
             push!(sched, datain)
         end
+        unlock(input)
         if !sorted
             sort!(sched, by = x -> x.exects, rev = true)
         end
@@ -92,7 +96,7 @@ function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
         while !isempty(sched)
             if ts >= sched[end].exects
                 tmsg = pop!(sched)
-                put!(output, tmsg.msg)
+                put!(output, tmsg)
             else
                 break
             end
@@ -100,12 +104,22 @@ function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
     end
 end
 
-function msg_worker(input)
+function populate(db, input)
+    @info "populate"
+    msgs = select(db, Vector{TimedMessage})
+    for msg in msgs
+        @info msg
+        put!(input, msg)
+    end
+end
+
+function msg_worker(db, input)
     while true
         try
             msg = take!(input)
             @debug msg
-            resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
+            resp = sendMessage(type = "stream", to = msg.msg.stream, topic = msg.msg.topic, content = msg.msg.content)
+            delete(db, msg)
             @debug resp
         catch err
             @error err
@@ -115,13 +129,15 @@ end
 
 function run(db, opts = OPTS[])
     inmsg_channel = Channel{TimedMessage}(1000)
-    outmsg_channel = Channel{Message}(1000)
+    outmsg_channel = Channel{TimedMessage}(1000)
     @async cron_worker(inmsg_channel, outmsg_channel)
-    @async msg_worker(outmsg_channel)
+    @async msg_worker(db, outmsg_channel)
     
     host = opts.host
     port = opts.port
     @info "Starting Reminder Bot server on $host:$port"
+
+    populate(db, inmsg_channel)
 
     HTTP.serve(opts.host, opts.port) do http
         ts = curts()

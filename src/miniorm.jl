@@ -191,3 +191,23 @@ function insert(adapter::Adapter, x::T) where T
 
     return x
 end
+
+function select(adapter::Adapter, ::Type{T}) where T
+    Strapping.construct(T, execute(adapter, "SELECT * FROM $(tablename(T))"))
+end
+
+function select(adapter::Adapter, ::Type{Vector{T}}) where T
+    Strapping.construct(Vector{T}, execute(adapter, "SELECT * FROM $(tablename(T))"))
+end
+
+function delete(adapter::Adapter, x::T, key = ()) where T
+    if isempty(key)
+        # Should delete over primary key
+        id = getfield(x, idproperty(T))
+        query = "DELETE FROM $(tablename(T)) WHERE $(idproperty(T)) = ?"
+        @info "" query id
+        execute(adapter, query, (id, ))
+    else
+        # Not implemented
+    end
+end
