@@ -51,8 +51,11 @@ function process_reminder(obj::ZulipRequest, db, channel, ts, opts)
     end
     content *= msg
 
+    content = base64encode(content)
     msg = if obj.message.type == "stream" && gde == :here
-        Message(obj.message.display_recipient, obj.message.subject, "stream", obj.message.sender_id, content)
+        stream = base64encode(obj.message.display_recipient)
+        topic = base64encode(obj.message.subject)
+        Message(stream, topic, "stream", obj.message.sender_id, content)
     else
         Message("", "", "private", obj.message.sender_id, content)
     end
