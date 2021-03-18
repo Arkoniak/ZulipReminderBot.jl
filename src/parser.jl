@@ -7,9 +7,14 @@ function validate(obj::ZulipRequest, opts)
         return false, "Incorrect token, verify ReminderBot server configuration"
     end
 
+    if obj.message.type == "stream"
+        if !startswith(obj.data, "@**")
+            return false, ""
+        end
+    end
     if obj.data[1] == '@'
-        m = match(r"^@[^\s]+\s+(.*)$"s, obj.data)
-        isnothing(m) && return false, "Wrong message. Refer to `help` on the usage of the ReminderBot."
+        m = match(r"^@\*\*[^\s]+\s+(.*)$"ms, obj.data)
+        m === nothing && return false, "Wrong message. Refer to `help` on the usage of the Reminder Bot."
         obj.data = m[1]
     end
 

@@ -1,3 +1,29 @@
+########################################
+# Zulip structures
+########################################
+mutable struct ZulipMessage
+    id::Int
+    type::String
+    stream_id::Int
+    subject::String
+    display_recipient::Any
+    sender_full_name::String
+    sender_id::Int
+end
+ZulipMessage() = ZulipMessage(-1, "private", -1, "", "", "", -1)
+StructTypes.StructType(::Type{ZulipMessage}) = StructTypes.Mutable()
+
+mutable struct ZulipRequest
+    data::String
+    token::String
+    message::ZulipMessage
+end
+ZulipRequest() = ZulipRequest("", "", ZulipMessage())
+StructTypes.StructType(::Type{ZulipRequest}) = StructTypes.Mutable()
+
+########################################
+# Zulip Client
+########################################
 struct ZulipClient
     baseep::String
     ep::String

@@ -30,33 +30,20 @@ curts() = Dates.value(now()) - Dates.UNIXEPOCH
 
 function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     status, resp = validate(obj, opts)
-    status || return JSON3.write((; content = resp))
+    status || return isempty(resp) ? resp : JSON3.write((; content = resp))
     
-    gde, status, msg, exects = zparse(obj.data, ts)
-    status == :unknown && return JSON3.write((; content = "Unable to process message. Please refer to `help` for the list of possible commands."))
-    # TODO:
-    if status == :absolute
-        # Fix time taking into account user's timezone
+    data = obj.data
+    resp = if startswith(data, "help")
+        process_help(obj, db, opts)
+    elseif startswith(data, "list")
+        process_list(obj, db, opts)
+    elseif startswith(data, "remove")
+        process_remove(obj, db, opts)
+    elseif startswith(data, "timezone")
+        process_timezone(obj, db, opts)
+    else
+        process_reminder(obj, db, channel, ts, opts)
     end
-    
-    content = startswithnarrow(msg) ? "" : (narrow(obj.message) * "\n")
-    content *= msg
-    msg = Message(obj.message.display_recipient, obj.message.subject, content)
-    tmsg = TimedMessage(ts, exects, msg)
-    tmsg = insert(db, tmsg)
-    @debug tmsg
-    put!(channel, tmsg)
-    resp = "Message is scheduled on $exects"
-
-    # resp = if startswith(obj.data, "timezone")
-    #     process_timezone(obj, db, opts)
-    # elseif startswith(obj.data, "list")
-    #     process_list(obj, db, opts)
-    # elseif startswith(obj.data, "help")
-    #     process_help(obj, db, opts)
-    # else
-    #     process_reminder(obj, db, opts)
-    # end
 
     return JSON3.write((; content = resp))
 end
@@ -105,10 +92,15 @@ end
 function msg_worker(db, input)
     while true
         try
-            msg = take!(input)
-            @debug msg
-            resp = sendMessage(type = "stream", to = msg.msg.stream, topic = msg.msg.topic, content = msg.msg.content)
-            delete(db, msg)
+            tmsg = take!(input)
+            @debug tmsg
+            msg = tmsg.msg
+            if msg.type == "private"
+                resp = sendMessage(type = "private", to = JSON3.write([msg.sender_id]), content = msg.content)
+            else
+                resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
+            end
+            delete(db, tmsg)
             @debug resp
         catch err
             @error err
@@ -135,8 +127,9 @@ function run(db, opts = OPTS[])
         obj = JSON3.read(obj, ZulipRequest)
         @info obj
         resp = process(obj, db, inmsg_channel, ts, opts)
-
-        return HTTP.Response(resp)
+        
+        isempty(resp) || return HTTP.Response(resp)
+        return nothing
     end
 end
 
