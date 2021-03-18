@@ -46,6 +46,7 @@ struct Message
 end
 StructTypes.StructType(::Type{Message}) = StructTypes.OrderedStruct()
 
+toepoch(ts) = Dates.value(ts) - Dates.UNIXEPOCH
 struct TimedMessage
     id::Int
     createts::Int
@@ -54,3 +55,4 @@ struct TimedMessage
 end
 StructTypes.StructType(::Type{TimedMessage}) = StructTypes.OrderedStruct()
 TimedMessage(createts, exects, msg) = TimedMessage(-1, createts, exects, msg)
+TimedMessage(createts::DateTime, exects::DateTime, msg) = TimedMessage(-1, toepoch(createts), toepoch(exects), msg)

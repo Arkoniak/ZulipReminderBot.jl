@@ -16,6 +16,7 @@ include("miniorm.jl")
 include("db_utils.jl")
 include("migrations.jl")
 include("zulipclient.jl")
+include("parser.jl")
 include("processors.jl")
 export setupbot!
 
@@ -24,40 +25,28 @@ currentts() = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS")
 ########################################
 # Processing
 ########################################
-function validate(obj::ZulipRequest, opts)
-    obj.data = strip(obj.data)
-    if obj.message.sender_id < 0 || isempty(obj.data) || isempty(obj.token)
-        return false, "Wrong message, contact bot maintainer"
-    end
-    if obj.token != opts.token
-        return false, "Incorrect token, verify ReminderBot server configuration"
-    end
-
-    if obj.data[1] == '@'
-        m = match(r"^@[^\s]+\s+(.*)$"s, obj.data)
-        isnothing(m) && return false, "Wrong message. Refer to `help` on the usage of the ReminderBot."
-        obj.data = m[1]
-    end
-
-    return true, ""
-end
 
 curts() = Dates.value(now()) - Dates.UNIXEPOCH
 
 function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     status, resp = validate(obj, opts)
-    !status && return JSON3.write((; content = resp))
+    status || return JSON3.write((; content = resp))
     
-    # Time is in milliseconds
-    exects = ts + 5_000
-    content = ZulipOpts[].baseep * "/#narrow/stream/$(obj.message.stream_id)-$(HTTP.escape(obj.message.display_recipient))/topic/$(HTTP.escape(obj.message.subject))/near/$(obj.message.id)\n"
-    content *= obj.data
+    gde, status, msg, exects = zparse(obj.data, ts)
+    status == :unknown && return JSON3.write((; content = "Unable to process message. Please refer to `help` for the list of possible commands."))
+    # TODO:
+    if status == :absolute
+        # Fix time taking into account user's timezone
+    end
+    
+    content = startswithnarrow(msg) ? "" : (narrow(obj.message) * "\n")
+    content *= msg
     msg = Message(obj.message.display_recipient, obj.message.subject, content)
     tmsg = TimedMessage(ts, exects, msg)
     tmsg = insert(db, tmsg)
     @debug tmsg
     put!(channel, tmsg)
-    resp = "Message is scheduled on $(unix2datetime(exects/1000.0))"
+    resp = "Message is scheduled on $exects"
 
     # resp = if startswith(obj.data, "timezone")
     #     process_timezone(obj, db, opts)
@@ -140,7 +129,7 @@ function run(db, opts = OPTS[])
     populate(db, inmsg_channel)
 
     HTTP.serve(opts.host, opts.port) do http
-        ts = curts()
+        ts = Dates.now()
         obj = String(HTTP.payload(http))
         @debug obj
         obj = JSON3.read(obj, ZulipRequest)
