@@ -1,91 +1,64 @@
-function process_show(obj::ZulipRequest, db, opts)
-    @info "show"
-    m = match(r"^show\s+([A-Za-z0-9]+)$", obj.data)
-    if isnothing(m)
-        return "No codeid is given in `show` command"
-    end
-    try
-        r = map(x -> x.snippet, get_by_code(db, m[1]))
-        if isempty(r)
-            return "Codeid $(m[1]) is not found"
-        end
-        return r[1]
-    catch err
-        @error exception=(err, catch_backtrace())
-        return "Server error, please try one more time. Later. Sorry."
-    end
+function process_timezone(obj::ZulipRequest, db, opts)
+    @info "timezone"
+    return "Not implemented yet"
 end
 
-function process_save(obj::ZulipRequest, db, opts)
-    @info "save"
-    hashtags = String[]
-    length(obj.data) < 6 && return "Not enough arguments in `save` command"
-    s = obj.data[6:end]
-
-    while true
-        m = match(r"^\s*(#[^\s]+)\s+(.*)"s, s)
-        isnothing(m) && break
-        push!(hashtags, m[1])
-        s = m[2]
-    end
-    
-    hashtags = join(hashtags, " ")
-    token = codeid()
-    try
-        store_snippet(db, obj.message.sender_id, token, s, hashtags)
-        return "Snippet codeid: `$token`"
-    catch err
-        @error "DB Error" exception=(err, catch_backtrace())
-        return "Server error, please try one more time. Later. Sorry."
-    end
+function process_remove(obj::ZulipRequest, db, opts)
+    @debug "remove"
+    return "Not implemented yet"
 end
 
 function process_list(obj::ZulipRequest, db, opts)
-    @info "list"
-    snippets = load_snippets(db, obj.message.sender_id)
-    snippets = map(x -> (; snippet = x.snippet, code = x.code, hashtags = x.tags, tags = split(x.tags, " ")), snippets)
-    if length(obj.data) >= 6
-        hashtags = String[]
-        s = obj.data[6:end]
-
-        while true
-            m = match(r"^\s*(#[^\s]+)\s*(.*)"s, s)
-            isnothing(m) && break
-            push!(hashtags, m[1])
-            s = m[2]
-        end
-        snippets = filter(x -> !isempty(intersect(hashtags, x.tags)), snippets)
-    end
-    
-    isempty(snippets) && return "No snippets found"
-
-    io = IOBuffer()
-    for snippet in snippets
-        println(io, "**codeid**: ", snippet.code, ", **tags**: ", snippet.hashtags)
-        println(io, snippet.snippet, "\n")
-    end
-    res = strip(String(take!(io)))
-    return res
+    @debug "list"
+    return "Not implemented yet"
 end
 
 function process_help(obj::ZulipRequest, db, opts)
-    @info "help"
+    @debug "help"
     return """
 Currently following commands are supported
 
-1. `list`: show all current reminders of a user
-2. `<where> <when> <what>`: set a reminder. 
-    - `where` is optional, should be either `me` or `#<topic_name>`. In latter case bot sends a message to a corresponding topic. If omitted reminder bot sends message to the same topic where it was called.
-    - `when` can be either in form `X days Y hours Z minutes` or in a form `2020-10-01 23:15:00`
+1. `<where> <when> <what>`: set a reminder. 
+    - `where` is optional, should be either `me` or `here`. In latter case bot sends a message to the topic where reminder was set. If `where` is omitted reminder bot sends message privately to the person who set the reminder.
+    - `when` can be either in relative form `X days Y hours Z minutes` or in an absolute form `2020-10-01 23:15:00`. In relative forms one can use single or plural form of `month`, `week`, `day`, `hour`, `minute`, `second`. In absolute form date is mandatory, but hours, minute or second part can be omitted.
     - `what` is a message that should be shown by reminder bot.
-3. `timezone <value>`: set timezone for current user
-4. `help`: this message
+2. `list`: show all current reminders of a user.
+3. `remove <id>`: remove your reminder with the id <id>.
+4. `timezone <value>`: set timezone for current user. If <value> is omitted, then current setting is used. Value should be in a form `Europe/Amsterdam`, `America/New_York` and the like.
+5. `help`: this message
 
 Examples of usage:
-- `me 2 days drink coffee`
-- `2021-12-31 12:00:00 Happy New Year`
-- `#cool_topic 1 hour Say something` - not implemented yet
+- `me 2 days drink coffee` (send private message in two hours)
+- `2021-12-31 12:00 Happy New Year` (send private message on the midnight of 31 December 2021)
+- `here 1 hour Say something` (send message to the stream in 1 hour)
     """
 end
 
+function process_reminder(obj::ZulipRequest, db, channel, ts, opts)
+    @debug "reminder"
+    gde, status, msg, exects = zparse(obj.data, ts)
+    status == :unknown && return "Unable to process message. Please refer to `help` for the list of possible commands."
+    # TODO:
+    if status == :absolute
+        # Fix time taking into account user's timezone
+    end
 
+    content = ((gde == :here) & (obj.message.type == "stream")) ? "On behalf of @**$(obj.message.sender_full_name)**\n" : ""
+    content *= if obj.message.type == "stream"
+        startswithnarrow(msg) ? "" : (narrow(obj.message) * "\n")
+    else
+        ""
+    end
+    content *= msg
+
+    msg = if obj.message.type == "stream" && gde == :here
+        Message(obj.message.display_recipient, obj.message.subject, "stream", obj.message.sender_id, content)
+    else
+        Message("", "", "private", obj.message.sender_id, content)
+    end
+    tmsg = TimedMessage(ts, exects, msg)
+    tmsg = insert(db, tmsg)
+    @debug tmsg
+    put!(channel, tmsg)
+    "Message is scheduled on $exects"
+end

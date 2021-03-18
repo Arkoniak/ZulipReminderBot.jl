@@ -20,32 +20,17 @@ end
 ########################################
 # Incoming messages processing
 ########################################
-mutable struct ZulipMessage
-    id::Int
-    sender_id::Int
-    type::String
-    stream_id::Int
-    subject::String
-    display_recipient::String
-end
-ZulipMessage() = ZulipMessage(-1, -1, "", -1, "", "")
-StructTypes.StructType(::Type{ZulipMessage}) = StructTypes.Mutable()
-
-mutable struct ZulipRequest
-    data::String
-    token::String
-    message::ZulipMessage
-end
-ZulipRequest() = ZulipRequest("", "", ZulipMessage())
-StructTypes.StructType(::Type{ZulipRequest}) = StructTypes.Mutable()
 
 struct Message
     stream::String
     topic::String
+    type::String
+    sender_id::Int
     content::String
 end
 StructTypes.StructType(::Type{Message}) = StructTypes.OrderedStruct()
 
+toepoch(ts) = Dates.value(ts) - Dates.UNIXEPOCH
 struct TimedMessage
     id::Int
     createts::Int
@@ -54,3 +39,4 @@ struct TimedMessage
 end
 StructTypes.StructType(::Type{TimedMessage}) = StructTypes.OrderedStruct()
 TimedMessage(createts, exects, msg) = TimedMessage(-1, createts, exects, msg)
+TimedMessage(createts::DateTime, exects::DateTime, msg) = TimedMessage(-1, toepoch(createts), toepoch(exects), msg)

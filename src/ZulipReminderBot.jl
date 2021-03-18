@@ -16,6 +16,7 @@ include("miniorm.jl")
 include("db_utils.jl")
 include("migrations.jl")
 include("zulipclient.jl")
+include("parser.jl")
 include("processors.jl")
 export setupbot!
 
@@ -24,50 +25,25 @@ currentts() = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS")
 ########################################
 # Processing
 ########################################
-function validate(obj::ZulipRequest, opts)
-    obj.data = strip(obj.data)
-    if obj.message.sender_id < 0 || isempty(obj.data) || isempty(obj.token)
-        return false, "Wrong message, contact bot maintainer"
-    end
-    if obj.token != opts.token
-        return false, "Incorrect token, verify ReminderBot server configuration"
-    end
-
-    if obj.data[1] == '@'
-        m = match(r"^@[^\s]+\s+(.*)$"s, obj.data)
-        isnothing(m) && return false, "Wrong message. Refer to `help` on the usage of the ReminderBot."
-        obj.data = m[1]
-    end
-
-    return true, ""
-end
 
 curts() = Dates.value(now()) - Dates.UNIXEPOCH
 
 function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     status, resp = validate(obj, opts)
-    !status && return JSON3.write((; content = resp))
+    status || return isempty(resp) ? resp : JSON3.write((; content = resp))
     
-    # Time is in milliseconds
-    exects = ts + 5_000
-    content = ZulipOpts[].baseep * "/#narrow/stream/$(obj.message.stream_id)-$(HTTP.escape(obj.message.display_recipient))/topic/$(HTTP.escape(obj.message.subject))/near/$(obj.message.id)\n"
-    content *= obj.data
-    msg = Message(obj.message.display_recipient, obj.message.subject, content)
-    tmsg = TimedMessage(ts, exects, msg)
-    tmsg = insert(db, tmsg)
-    @debug tmsg
-    put!(channel, tmsg)
-    resp = "Message is scheduled on $(unix2datetime(exects/1000.0))"
-
-    # resp = if startswith(obj.data, "timezone")
-    #     process_timezone(obj, db, opts)
-    # elseif startswith(obj.data, "list")
-    #     process_list(obj, db, opts)
-    # elseif startswith(obj.data, "help")
-    #     process_help(obj, db, opts)
-    # else
-    #     process_reminder(obj, db, opts)
-    # end
+    data = obj.data
+    resp = if startswith(data, "help")
+        process_help(obj, db, opts)
+    elseif startswith(data, "list")
+        process_list(obj, db, opts)
+    elseif startswith(data, "remove")
+        process_remove(obj, db, opts)
+    elseif startswith(data, "timezone")
+        process_timezone(obj, db, opts)
+    else
+        process_reminder(obj, db, channel, ts, opts)
+    end
 
     return JSON3.write((; content = resp))
 end
@@ -116,10 +92,15 @@ end
 function msg_worker(db, input)
     while true
         try
-            msg = take!(input)
-            @debug msg
-            resp = sendMessage(type = "stream", to = msg.msg.stream, topic = msg.msg.topic, content = msg.msg.content)
-            delete(db, msg)
+            tmsg = take!(input)
+            @debug tmsg
+            msg = tmsg.msg
+            if msg.type == "private"
+                resp = sendMessage(type = "private", to = JSON3.write([msg.sender_id]), content = msg.content)
+            else
+                resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
+            end
+            delete(db, tmsg)
             @debug resp
         catch err
             @error err
@@ -140,14 +121,15 @@ function run(db, opts = OPTS[])
     populate(db, inmsg_channel)
 
     HTTP.serve(opts.host, opts.port) do http
-        ts = curts()
+        ts = Dates.now()
         obj = String(HTTP.payload(http))
         @debug obj
         obj = JSON3.read(obj, ZulipRequest)
         @info obj
         resp = process(obj, db, inmsg_channel, ts, opts)
-
-        return HTTP.Response(resp)
+        
+        isempty(resp) || return HTTP.Response(resp)
+        return nothing
     end
 end
 
