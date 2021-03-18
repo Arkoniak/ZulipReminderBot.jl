@@ -95,10 +95,13 @@ function msg_worker(db, input)
             tmsg = take!(input)
             @debug tmsg
             msg = tmsg.msg
+            content = base64decode(msg.content) |> String
             if msg.type == "private"
-                resp = sendMessage(type = "private", to = JSON3.write([msg.sender_id]), content = msg.content)
+                resp = sendMessage(type = "private", to = JSON3.write([msg.sender_id]), content = content)
             else
-                resp = sendMessage(type = "stream", to = msg.stream, topic = msg.topic, content = msg.content)
+                stream = base64decode(msg.stream) |> String
+                topic = base64decode(msg.topic) |> String
+                resp = sendMessage(type = "stream", to = stream, topic = topic, content = content)
             end
             delete(db, tmsg)
             @debug resp
