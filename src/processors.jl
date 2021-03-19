@@ -49,8 +49,8 @@ Currently following commands are supported
     - `when` can be either in relative form `X days Y hours Z minutes` or in an absolute form `2020-10-01 23:15:00`. In relative forms single or plural form of `month`, `week`, `day`, `hour`, `minute`, `second` are allowed. In absolute form date is mandatory, but hours, minute or second part can be omitted.
     - `what` is a message that should be shown by reminder bot.
 2. `list`: show all current reminders of a user.
-3. `remove <id>`: remove your reminder with the id <id>.
-4. `timezone <value>`: set timezone for current user. If <value> is omitted, then current setting is used. Value should be in a form `Europe/Amsterdam`, `America/New_York` and the like.
+3. `remove <id>`: remove your reminder with the id `<id>`.
+4. `timezone <value>`: set timezone for current user. If `<value>` is omitted, then current setting is used. Value should be in a form `Europe/Amsterdam`, `America/New_York` and the like.
 5. `help`: this message
 
 Examples of usage:
