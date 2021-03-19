@@ -28,7 +28,8 @@ currentts() = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS")
 # Processing
 ########################################
 
-curts() = Dates.value(now()) - Dates.UNIXEPOCH
+toepoch(ts) = Dates.value(ts) - Dates.UNIXEPOCH
+curts() = toepoch(Dates.now())
 
 function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     status, resp = validate(obj, opts)

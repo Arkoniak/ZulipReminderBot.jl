@@ -30,7 +30,6 @@ struct Message
 end
 StructTypes.StructType(::Type{Message}) = StructTypes.OrderedStruct()
 
-toepoch(ts) = Dates.value(ts) - Dates.UNIXEPOCH
 struct TimedMessage
     id::Int
     createts::Int
