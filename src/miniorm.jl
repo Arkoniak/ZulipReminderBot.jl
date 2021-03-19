@@ -118,12 +118,14 @@ autoincrement(::Type{T}) where T = :_
 ########################################
 
 function execute(adapter::Adapter, query, vals = nothing)
-    if vals === nothing
+    if vals === nothing || isempty(vals)
         res = DBInterface.execute(adapter.conn, query)
     else
         stmt = prepare(adapter, query)
         res = DBInterface.execute(stmt, vals)
-        DBInterface.close!(stmt)
+        # TODO: I do not like that I have hanging statements, but this is the only way
+        # to ensure select results...
+        # DBInterface.close!(stmt)
     end
 
     res
@@ -192,12 +194,33 @@ function insert(adapter::Adapter, x::T) where T
     return x
 end
 
-function select(adapter::Adapter, ::Type{T}) where T
-    Strapping.construct(T, execute(adapter, "SELECT * FROM $(tablename(T))"))
+function build_select(adapter::Adapter, ::Type{T}, filt = ()) where T
+    iob = IOBuffer()
+    print(iob, "SELECT * FROM ", tablename(T))
+    
+    if !isempty(filt)
+        isfirst = true
+        print(iob, " WHERE")
+        for (k, _) in filt
+            print(iob, isfirst ? " " : " AND ", k, " = ?")
+        end
+    end
+
+    return String(take!(iob))
 end
 
-function select(adapter::Adapter, ::Type{Vector{T}}) where T
-    Strapping.construct(Vector{T}, execute(adapter, "SELECT * FROM $(tablename(T))"))
+function select(adapter::Adapter, ::Type{T}, filt = ()) where T
+    query = build_select(adapter, T, filt)
+    vals = map(x -> x[2], filt)
+
+    Strapping.construct(T, execute(adapter, query, vals))
+end
+
+function select(adapter::Adapter, ::Type{Vector{T}}, filt = ()) where T
+    query = build_select(adapter, T, filt)
+    vals = map(x -> x[2], filt)
+
+    Strapping.construct(Vector{T}, execute(adapter, query, vals))
 end
 
 function delete(adapter::Adapter, x::T, key = ()) where T
@@ -210,4 +233,55 @@ function delete(adapter::Adapter, x::T, key = ()) where T
     else
         # Not implemented
     end
+end
+
+function build_upsert(adapter::Adapter, x::T, onconflict = ()) where T
+    c = deconstruct(T)
+    iob = IOBuffer()
+    
+    pkcol = idproperty(T)
+
+    print(iob, "INSERT INTO ", tablename(T), " (")
+    isfirst = true
+    cnt = 0
+    for field in c.fields
+        cnt += 1
+        print(iob, isfirst ? "" : ", ", field.name)
+        isfirst = false
+    end
+
+    print(iob, ") VALUES (")
+
+    isfirst = true
+    for i in 1:cnt
+        print(iob, isfirst ? "?" : ",?")
+        isfirst = false
+    end
+    print(iob, ")")
+
+    print(iob, " ON CONFLICT")
+    if isempty(onconflict)
+        print(iob, " DO NOTHING")
+    else
+        print(iob, "(", pkcol, ")")
+        print(iob, " DO UPDATE SET ")
+        isfirst = true
+        for key in onconflict
+            print(iob, isfirst ? "" : ", ", key, " = EXCLUDED.", key)
+            isfirst = false
+        end
+    end
+
+    query = String(take!(iob))
+end
+
+function upsert(adapter::Adapter, x::T, onconflict = ()) where T
+    # Yeah... I'll hardcode primary key upsert. Should be done better
+    query = build_upsert(adapter, x, onconflict)
+    c = deconstruct(T)
+
+    vals = Strapping.deconstruct(x) |> only |> values
+    res = execute(adapter, query, vals)
+    
+    return nothing
 end

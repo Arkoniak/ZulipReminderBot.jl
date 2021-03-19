@@ -14,5 +14,6 @@
 # end
 
 function up(conn)
-    create_table(conn, TimedMessage)
+    # create_table(conn, TimedMessage)
+    create_table(conn, Sender)
 end
