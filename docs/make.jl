@@ -1,4 +1,4 @@
-using TimeZoneLookup
+using ZulipReminderBot
 using Documenter
 
 DocMeta.setdocmeta!(ZulipReminderBot, :DocTestSetup, :(using ZulipReminderBot); recursive=true)
