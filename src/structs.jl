@@ -40,3 +40,13 @@ end
 StructTypes.StructType(::Type{TimedMessage}) = StructTypes.OrderedStruct()
 TimedMessage(createts, exects, msg) = TimedMessage(-1, createts, exects, msg)
 TimedMessage(createts::DateTime, exects::DateTime, msg) = TimedMessage(-1, toepoch(createts), toepoch(exects), msg)
+
+########################################
+# TimeZone information
+########################################
+
+struct Sender
+    id::Int
+    tz::String
+end
+StructTypes.StructType(::Type{Sender}) = StructTypes.OrderedStruct()

@@ -1,6 +1,32 @@
+########################################
+# Timezone utilities
+########################################
+
+function isfixedtz(s)
+    match(r"^UTC[+-][0-9]{1,2}$", s) !== nothing
+end
+
+function getsendertz(db, sender_id)
+    sender = select(db, Vector{Sender}, (:id => sender_id, ))
+    isempty(sender) ? "UTC+0" : sender[1].tz
+end
+
 function process_timezone(obj::ZulipRequest, db, opts)
     @info "timezone"
-    return "Not implemented yet"
+    
+    m = match(r"timezone\s*(.*)", obj.data)
+    if isempty(m[1])
+        # Show stored value
+        tz = getsendertz(db, obj.message.sender_id)
+        return "Your timezone is $tz"
+    else
+        if m[1] in TZS || isfixedtz(m[1])
+            upsert(db, Sender(obj.message.sender_id, m[1]), (:tz, ))
+            return "New timezone saved"
+        else
+            return "Unknown timezone format. Please refer [TimeZones.jl documentation](https://juliatime.github.io/TimeZones.jl/stable/types/#TimeZone-1) for the list of available timezones"
+        end
+    end
 end
 
 function process_remove(obj::ZulipRequest, db, opts)
@@ -38,10 +64,17 @@ function process_reminder(obj::ZulipRequest, db, channel, ts, opts)
     @debug "reminder"
     gde, status, msg, exects = zparse(obj.data, ts)
     status == :unknown && return "Unable to process message. Please refer to `help` for the list of possible commands."
-    # TODO:
+
+    tz0 = getsendertz(db, obj.message.sender_id)
+    tz = tz0 in TZS ? TimeZone(tz0) : FixedTimeZone(tz0)
     if status == :absolute
-        # Fix time taking into account user's timezone
+        exects0 = ZonedDateTime(exects, tz)
+        exects = astimezone(exects0, localzone())
+    else
+        exects = ZonedDateTime(exects, localzone())
+        exects0 = astimezone(exects, tz)
     end
+    exects = DateTime(exects)
 
     content = ((gde == :here) & (obj.message.type == "stream")) ? "On behalf of @**$(obj.message.sender_full_name)**\n" : ""
     content *= if obj.message.type == "stream"
@@ -59,9 +92,10 @@ function process_reminder(obj::ZulipRequest, db, channel, ts, opts)
     else
         Message("", "", "private", obj.message.sender_id, content)
     end
+
     tmsg = TimedMessage(ts, exects, msg)
     tmsg = insert(db, tmsg)
     @debug tmsg
     put!(channel, tmsg)
-    "Message is scheduled on $exects"
+    "Message is scheduled on $(Dates.format(exects0, "yyyy-mm-dd HH:MM:SS z"))"
 end

@@ -20,6 +20,8 @@ include("parser.jl")
 include("processors.jl")
 export setupbot!
 
+const TZS = Set(timezone_names())
+
 currentts() = Dates.format(Dates.now(), "yyyy-mm-ddTHH:MM:SS")
 
 ########################################
