@@ -1,8 +1,4 @@
-using HTTP
-using JSON3
-using SQLite
 using ZulipReminderBot
-using ZulipReminderBot: ZulipClient
 using DotEnv
 
 include("configuration.jl")
