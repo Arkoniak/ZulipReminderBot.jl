@@ -138,4 +138,12 @@ function run(db, opts = OPTS[])
     end
 end
 
+precompile(cron_worker, (Channel{TimedMessage}, Channel{TimedMessage}))
+precompile(HTTP.Handlers.serve, (Function, String, Int64))
+precompile(JSON3.read, (Vector{UInt8}, ))
+precompile(JSON3.read, (JSON3.VectorString{Vector{UInt8}}, ))
+precompile(HTTP.request, (String, String, Vector{Pair{String, String}}, String))
+precompile(HTTP.request, (String, String, Vector{Pair{String, String}}, SubString{String}))
+precompile(query, (ZulipClient, String, Dict{Symbol, String}))
+
 end # module

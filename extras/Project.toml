@@ -1,8 +1,10 @@
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
 DotEnv = "4dc1fcf4-5e3b-5448-94ab-0c38ec0385c1"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+MethodAnalysis = "85b6ec6f-f7df-4429-9514-a64bcd9ee824"
 ODBC = "be6f12e9-ca4f-5eb2-a339-a4f995cc0291"
 Strapping = "3787371a-436b-4cb0-be6b-e772a55e3ebe"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
