@@ -13,7 +13,6 @@ JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MiniLoggers = "93f3dd0f-005d-4452-894a-a31841fa4078"
 ODBC = "be6f12e9-ca4f-5eb2-a339-a4f995cc0291"
-SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
 Setfield = "efcf1570-3423-57d1-acb7-fd33fddbac46"
 Strapping = "3787371a-436b-4cb0-be6b-e772a55e3ebe"
 StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
@@ -21,6 +20,14 @@ TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 
 [compat]
 ODBC = "1.0"
+StructTypes = "1.4"
+HTTP = "0.9"
+MiniLoggers = "0.1"
+DBInterface = "2.4"
+Strapping = "1.2"
+JSON3 = "1.7"
+Setfield = "0.7"
+TimeZones = "1.5"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
