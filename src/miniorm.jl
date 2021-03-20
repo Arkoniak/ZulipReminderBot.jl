@@ -223,6 +223,27 @@ function select(adapter::Adapter, ::Type{Vector{T}}, filt = ()) where T
     Strapping.construct(Vector{T}, execute(adapter, query, vals))
 end
 
+function build_delete(adapter::Adapter, ::Type{T}, filt) where T
+    iob = IOBuffer()
+    
+    print(iob, "DELETE FROM ", tablename(T), " WHERE ")
+    isfirst = true
+    for (k, _) in filt
+        print(iob, isfirst ? "" : ",", k, " = ?")
+    end
+
+    return String(take!(iob))
+end
+
+function delete(adapter::Adapter, ::Type{T}, filt) where T
+    isempty(filt) && return nothing
+    query = build_delete(adapter, T, filt)
+    vals = map(x -> x[2], filt)
+    execute(adapter, query, filt)
+
+    return nothing
+end
+
 function delete(adapter::Adapter, x::T, key = ()) where T
     if isempty(key)
         # Should delete over primary key

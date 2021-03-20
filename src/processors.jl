@@ -31,13 +31,22 @@ end
 
 function process_remove(obj::ZulipRequest, db, opts)
     @debug "remove"
-    return "Not implemented yet"
+    m = match(r"remove\s+(.*)")
+    m === nothing && return "No scheduled messages were removed"
+    ids = strip.(split(m[1], ","))
+    for str_id in ids
+        id = tryparse(Int, str_id)
+        id === nothing && continue
+        delete(db, TimedMessage, (:id => id, :msg_sender_id => obj.message.sender_id))
+    end
+    return "Messages were removed from the schedule"
 end
 
 function process_list(obj::ZulipRequest, db, opts)
     @debug "list"
     tmsgs = select(db, Vector{TimedMessage}, (:msg_sender_id => obj.message.sender_id, ))
     isempty(tmsgs) && return "No messages scheduled"
+    sort!(tmsgs, by = x -> x.exects)
 
     iob = IOBuffer()
     tz0 = getsendertz(db, obj.message.sender_id)
