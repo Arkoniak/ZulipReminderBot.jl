@@ -131,6 +131,20 @@ function execute(adapter::Adapter, query, vals = nothing)
     res
 end
 
+function execute(f, adapter::Adapter, query, vals = nothing)
+    if vals === nothing || isempty(vals)
+        res = f(DBInterface.execute(adapter.conn, query))
+    else
+        stmt = prepare(adapter, query)
+        res = f(DBInterface.execute(stmt, vals))
+        # TODO: I do not like that I have hanging statements, but this is the only way
+        # to ensure select results...
+        DBInterface.close!(stmt)
+    end
+
+    res
+end
+
 prepare(adapter::Adapter, query) = DBInterface.prepare(adapter.conn, query)
 
 function build_insert(adapter::Adapter, x::T) where T
@@ -185,10 +199,11 @@ function insert(adapter::Adapter, x::T) where T
         end
         push!(vals, v)
     end
-    res = execute(adapter, query, vals)
-    if isaicol
-        l = Setfield.PropertyLens{aicol}()
-        x = set(x, l, only(only(res.columns)))
+    x = execute(adapter, query, vals) do res
+        if isaicol
+            l = Setfield.PropertyLens{aicol}()
+            set(x, l, only(only(res.columns)))
+        end
     end
 
     return x
@@ -213,14 +228,18 @@ function select(adapter::Adapter, ::Type{T}, filt = ()) where T
     query = build_select(adapter, T, filt)
     vals = map(x -> x[2], filt)
 
-    Strapping.construct(T, execute(adapter, query, vals))
+    execute(adapter, query, vals) do dbres
+        Strapping.construct(T, dbres)
+    end
 end
 
 function select(adapter::Adapter, ::Type{Vector{T}}, filt = ()) where T
     query = build_select(adapter, T, filt)
     vals = map(x -> x[2], filt)
 
-    Strapping.construct(Vector{T}, execute(adapter, query, vals))
+    execute(adapter, query, vals) do dbres
+        Strapping.construct(Vector{T}, dbres)
+    end
 end
 
 function build_delete(adapter::Adapter, ::Type{T}, filt) where T
@@ -229,7 +248,8 @@ function build_delete(adapter::Adapter, ::Type{T}, filt) where T
     print(iob, "DELETE FROM ", tablename(T), " WHERE ")
     isfirst = true
     for (k, _) in filt
-        print(iob, isfirst ? "" : ",", k, " = ?")
+        print(iob, isfirst ? "" : " AND ", k, " = ?")
+        isfirst = false
     end
 
     return String(take!(iob))
@@ -239,7 +259,7 @@ function delete(adapter::Adapter, ::Type{T}, filt) where T
     isempty(filt) && return nothing
     query = build_delete(adapter, T, filt)
     vals = map(x -> x[2], filt)
-    execute(adapter, query, filt)
+    execute(identity, adapter, query, vals)
 
     return nothing
 end
@@ -249,7 +269,7 @@ function delete(adapter::Adapter, x::T, key = ()) where T
         # Should delete over primary key
         id = getfield(x, idproperty(T))
         query = "DELETE FROM $(tablename(T)) WHERE $(idproperty(T)) = ?"
-        execute(adapter, query, (id, ))
+        execute(identity, adapter, query, (id, ))
     else
         # Not implemented
     end
@@ -301,7 +321,7 @@ function upsert(adapter::Adapter, x::T, onconflict = ()) where T
     c = deconstruct(T)
 
     vals = Strapping.deconstruct(x) |> only |> values
-    res = execute(adapter, query, vals)
+    res = execute(identity, adapter, query, vals)
     
     return nothing
 end

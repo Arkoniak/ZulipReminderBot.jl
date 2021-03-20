@@ -31,7 +31,7 @@ end
 
 function process_remove(obj::ZulipRequest, db, opts)
     @debug "remove"
-    m = match(r"remove\s+(.*)")
+    m = match(r"remove\s+(.*)", obj.data)
     m === nothing && return "No scheduled messages were removed"
     ids = strip.(split(m[1], ","))
     for str_id in ids
@@ -54,12 +54,12 @@ function process_list(obj::ZulipRequest, db, opts)
     isfirst = true
     for tmsg in tmsgs
         exects = astimezone(ZonedDateTime(unix2datetime(round(Int, tmsg.exects/1000)), localzone()), tz)
-        if isfirst
+        if !isfirst
             print(iob, "\n---\n")
         end
-        print(iob, "**id: ", tmsg.id, "**\n")
-        print(iob, "**scheduled: ", Dates.format("yyyy-mm-dd HH:MM:SS z"), "\n")
-        print(iob, tmsg.msg.content)
+        print(iob, "**id:** ", tmsg.id, "\n")
+        print(iob, "**scheduled:** ", Dates.format(exects, "yyyy-mm-dd HH:MM:SS z"), "\n")
+        print(iob, String(base64decode(tmsg.msg.content)))
         isfirst = false
     end
 
@@ -76,7 +76,7 @@ Currently following commands are supported
     - `when` can be either in relative form `X days Y hours Z minutes` or in an absolute form `2020-10-01 23:15:00`. In relative forms single or plural form of `month`, `week`, `day`, `hour`, `minute`, `second` are allowed. In absolute form date is mandatory, but hours, minute or second part can be omitted.
     - `what` is a message that should be shown by reminder bot.
 2. `list`: show all current reminders of a user.
-3. `remove <id>`: remove your reminder with the id `<id>`.
+3. `remove <id>`: remove your reminder with the id `<id>`. Multiple `<id>` can be given comma separated.
 4. `timezone <value>`: set timezone for current user. If `<value>` is omitted, then current setting is used. Value should be in a form `Europe/Amsterdam`, `America/New_York` and the like.
 5. `help`: this message
 

@@ -1,8 +1,7 @@
 using ZulipReminderBot
-using DotEnv
 
-include("configuration.jl")
 cfg = DotEnv.config()
+include("configuration.jl")
 setupbot!(token = cfg["REMINDER_BOT_TOKEN"],
           host = cfg["REMINDER_BOT_HOST"],
           port = cfg["REMINDER_BOT_PORT"],
