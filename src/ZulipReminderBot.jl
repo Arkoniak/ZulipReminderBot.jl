@@ -5,7 +5,6 @@ using HTTP
 using JSON3
 using StructTypes
 using Dates
-using SQLite
 using DBInterface
 using Strapping
 using TimeZones

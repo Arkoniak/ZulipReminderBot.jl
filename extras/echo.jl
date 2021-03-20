@@ -4,7 +4,7 @@ using JSON3
 
 cfg = DotEnv.config()
 
-port = parse(Int, cfg["ZULIP_ECHOBOT_PORT"])
+port = parse(Int, cfg["REMINDER_BOT_PORT"])
 host = "127.0.0.1"
 # TODO: Change all print to log
 println("Starting echo service on $host:$port")
