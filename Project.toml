@@ -21,6 +21,10 @@ TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 
 [compat]
 DBInterface = "2.4"
+Strapping = "1.2"
+JSON3 = "1.7"
+Setfield = "0.7"
+TimeZones = "1.5"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
