@@ -42,11 +42,11 @@ function DBInterface.close!(stmt::MockDBStmt) end
     db = Adapter(MockDB(), MockDB)
 
     res = process_list(zreq, db, nothing)
-    @test res == "**id:** 123\n**scheduled:** 2021-06-01 16:25:21 +01:00\nHello"
+    @test res == "**id:** 123\n**scheduled:** 2021-06-01 19:25:21 +01:00\nHello"
 
     zreq.message.sender_id = 2
     res = process_list(zreq, db, nothing)
-    @test res == "**id:** 123\n**scheduled:** 2021-06-01 19:25:21 +04:00\nHello\n---\n**id:** 124\n**scheduled:** 2021-06-01 19:25:31 +04:00\nHello2"
+    @test res == "**id:** 123\n**scheduled:** 2021-06-01 22:25:21 +04:00\nHello\n---\n**id:** 124\n**scheduled:** 2021-06-01 22:25:31 +04:00\nHello2"
     zreq.message.sender_id = 3
     res = process_list(zreq, db, nothing)
     @test res == "No messages scheduled"

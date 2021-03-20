@@ -53,7 +53,7 @@ function process_list(obj::ZulipRequest, db, opts)
     tz = tz0 in TZS ? TimeZone(tz0) : FixedTimeZone(tz0)
     isfirst = true
     for tmsg in tmsgs
-        exects = astimezone(ZonedDateTime(unix2datetime(round(Int, tmsg.exects/1000)), localzone()), tz)
+        exects = astimezone(ZonedDateTime(unix2datetime(round(Int, tmsg.exects/1000)), TimeZone("GMT")), tz)
         if !isfirst
             print(iob, "\n---\n")
         end
