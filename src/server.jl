@@ -1,7 +1,11 @@
-toepoch(ts) = Dates.value(ts) - Dates.UNIXEPOCH
-curts() = toepoch(Dates.now())
-
 const TZS = Set(timezone_names())
+const GMTTZ = TimeZone("GMT")
+
+function toepoch(ts)
+    fixedts = astimezone(ZonedDateTime(ts, localzone()), GMTTZ) |> DateTime
+    Dates.value(fixedts) - Dates.UNIXEPOCH
+end
+curts() = toepoch(Dates.now())
 
 struct Opts
     token::String
