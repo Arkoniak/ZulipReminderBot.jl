@@ -12,7 +12,7 @@ function getsendertz(db, sender_id)
 end
 
 function process_timezone(obj::ZulipRequest, db, opts)
-    @info "timezone"
+    @debug "timezone"
     
     m = match(r"timezone\s*(.*)", obj.data)
     if isempty(m[1])
@@ -36,7 +36,25 @@ end
 
 function process_list(obj::ZulipRequest, db, opts)
     @debug "list"
-    return "Not implemented yet"
+    tmsgs = select(db, Vector{TimedMessage}, (:msg_sender_id => obj.message.sender_id, ))
+    isempty(tmsgs) && return "No messages scheduled"
+
+    iob = IOBuffer()
+    tz0 = getsendertz(db, obj.message.sender_id)
+    tz = tz0 in TZS ? TimeZone(tz0) : FixedTimeZone(tz0)
+    isfirst = true
+    for tmsg in tmsgs
+        exects = astimezone(ZonedDateTime(unix2datetime(round(Int, tmsg.exects/1000)), localzone()), tz)
+        if isfirst
+            print(iob, "\n---\n")
+        end
+        print(iob, "**id: ", tmsg.id, "**\n")
+        print(iob, "**scheduled: ", Dates.format("yyyy-mm-dd HH:MM:SS z"), "\n")
+        print(iob, tmsg.msg.content)
+        isfirst = false
+    end
+
+    return String(take!(iob))
 end
 
 function process_help(obj::ZulipRequest, db, opts)

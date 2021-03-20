@@ -228,7 +228,6 @@ function delete(adapter::Adapter, x::T, key = ()) where T
         # Should delete over primary key
         id = getfield(x, idproperty(T))
         query = "DELETE FROM $(tablename(T)) WHERE $(idproperty(T)) = ?"
-        @info "" query id
         execute(adapter, query, (id, ))
     else
         # Not implemented

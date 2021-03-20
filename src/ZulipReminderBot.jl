@@ -86,7 +86,7 @@ function populate(db, input)
     @info "populate"
     msgs = select(db, Vector{TimedMessage})
     for msg in msgs
-        @info msg
+        @debug msg
         put!(input, msg)
     end
 end
@@ -130,7 +130,7 @@ function run(db, opts = OPTS[])
         obj = String(HTTP.payload(http))
         @debug obj
         obj = JSON3.read(obj, ZulipRequest)
-        @info obj
+        @debug obj
         resp = process(obj, db, inmsg_channel, ts, opts)
         
         isempty(resp) || return HTTP.Response(resp)
