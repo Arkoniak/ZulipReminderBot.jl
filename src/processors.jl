@@ -12,7 +12,7 @@ function getsendertz(db, sender_id)
 end
 
 function process_timezone(obj::ZulipRequest, db, opts)
-    @info "timezone"
+    @debug "timezone"
     
     m = match(r"timezone\s*(.*)", obj.data)
     if isempty(m[1])
@@ -31,12 +31,39 @@ end
 
 function process_remove(obj::ZulipRequest, db, opts)
     @debug "remove"
-    return "Not implemented yet"
+    m = match(r"remove\s+(.*)", obj.data)
+    m === nothing && return "No scheduled messages were removed"
+    ids = strip.(split(m[1], ","))
+    for str_id in ids
+        id = tryparse(Int, str_id)
+        id === nothing && continue
+        delete(db, TimedMessage, (:id => id, :msg_sender_id => obj.message.sender_id))
+    end
+    return "Messages were removed from the schedule"
 end
 
 function process_list(obj::ZulipRequest, db, opts)
     @debug "list"
-    return "Not implemented yet"
+    tmsgs = select(db, Vector{TimedMessage}, (:msg_sender_id => obj.message.sender_id, ))
+    isempty(tmsgs) && return "No messages scheduled"
+    sort!(tmsgs, by = x -> x.exects)
+
+    iob = IOBuffer()
+    tz0 = getsendertz(db, obj.message.sender_id)
+    tz = tz0 in TZS ? TimeZone(tz0) : FixedTimeZone(tz0)
+    isfirst = true
+    for tmsg in tmsgs
+        exects = astimezone(ZonedDateTime(unix2datetime(round(Int, tmsg.exects/1000)), TimeZone("GMT")), tz)
+        if !isfirst
+            print(iob, "\n---\n")
+        end
+        print(iob, "**id:** ", tmsg.id, "\n")
+        print(iob, "**scheduled:** ", Dates.format(exects, "yyyy-mm-dd HH:MM:SS z"), "\n")
+        print(iob, String(base64decode(tmsg.msg.content)))
+        isfirst = false
+    end
+
+    return String(take!(iob))
 end
 
 function process_help(obj::ZulipRequest, db, opts)
@@ -49,7 +76,7 @@ Currently following commands are supported
     - `when` can be either in relative form `X days Y hours Z minutes` or in an absolute form `2020-10-01 23:15:00`. In relative forms single or plural form of `month`, `week`, `day`, `hour`, `minute`, `second` are allowed. In absolute form date is mandatory, but hours, minute or second part can be omitted.
     - `what` is a message that should be shown by reminder bot.
 2. `list`: show all current reminders of a user.
-3. `remove <id>`: remove your reminder with the id `<id>`.
+3. `remove <id>`: remove your reminder with the id `<id>`. Multiple `<id>` can be given comma separated.
 4. `timezone <value>`: set timezone for current user. If `<value>` is omitted, then current setting is used. Value should be in a form `Europe/Amsterdam`, `America/New_York` and the like.
 5. `help`: this message
 
