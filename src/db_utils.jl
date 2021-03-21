@@ -20,6 +20,7 @@ end
 StructTypes.StructType(::Type{TimedMessage}) = StructTypes.OrderedStruct()
 TimedMessage(createts, exects, msg) = TimedMessage(-1, createts, exects, msg)
 TimedMessage(createts::DateTime, exects::DateTime, msg) = TimedMessage(-1, toepoch(createts), toepoch(exects), msg)
+TimedMessage(id, createts::DateTime, exects::DateTime, msg) = TimedMessage(id, toepoch(createts), toepoch(exects), msg)
 
 tablename(::Type{TimedMessage}) = "messages"
 idproperty(::Type{TimedMessage}) = :id
