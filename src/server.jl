@@ -40,7 +40,7 @@ function process(obj::ZulipRequest, db, channel, ts, opts = OPTS[])
     elseif startswith(data, "list")
         process_list(obj, db, opts)
     elseif startswith(data, "remove")
-        process_remove(obj, db, opts)
+        process_remove(obj, db, channel, ts, opts)
     elseif startswith(data, "timezone")
         process_timezone(obj, db, opts)
     else
@@ -54,40 +54,52 @@ end
 # Server
 ########################################
 
-function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
+function heartbeat!(sched, ts, input, output)
     sorted = true
+    lock(input)
+    while isready(input)
+        sorted = false
+        datain = take!(input)
+        if datain[2] == 1
+            push!(sched, datain[1])
+        else
+            idx = findfirst(x -> x.id == datain[1].id && x.msg.sender_id == datain[1].msg.sender_id, sched)
+            idx === nothing && continue
+            deleteat!(sched, idx)
+        end
+    end
+    unlock(input)
+    if !sorted
+        sort!(sched, by = x -> x.exects, rev = true)
+    end
+    isempty(sched) && return nothing
+
+    while !isempty(sched)
+        if ts >= sched[end].exects
+            tmsg = pop!(sched)
+            put!(output, tmsg)
+        else
+            break
+        end
+    end
+
+    nothing
+end
+
+function cron_worker(input, output, sched = TimedMessage[], sleepduration = 1)
     while true
         sleep(sleepduration)
-        lock(input)
-        while isready(input)
-            sorted = false
-            datain = take!(input)
-            push!(sched, datain)
-        end
-        unlock(input)
-        if !sorted
-            sort!(sched, by = x -> x.exects, rev = true)
-        end
-        isempty(sched) && continue
         ts = curts()
-
-        while !isempty(sched)
-            if ts >= sched[end].exects
-                tmsg = pop!(sched)
-                put!(output, tmsg)
-            else
-                break
-            end
-        end
+        heartbeat!(sched, ts, input, output)
     end
 end
 
 function populate(db, input)
-    @info "populate"
     msgs = select(db, Vector{TimedMessage})
+    @info "populating $(length(msgs)) messages"
     for msg in msgs
         @debug msg
-        put!(input, msg)
+        put!(input, (msg, 1))
     end
 end
 
@@ -114,8 +126,8 @@ function msg_worker(db, input)
 end
 
 function run(db, opts = OPTS[])
-    inmsg_channel = Channel{TimedMessage}(1000)
-    outmsg_channel = Channel{TimedMessage}(1000)
+    inmsg_channel = Channel{Tuple{TimedMessage, Int}}(Inf)
+    outmsg_channel = Channel{TimedMessage}(Inf)
     @async cron_worker(inmsg_channel, outmsg_channel)
     @async msg_worker(db, outmsg_channel)
     

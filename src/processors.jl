@@ -29,7 +29,7 @@ function process_timezone(obj::ZulipRequest, db, opts)
     end
 end
 
-function process_remove(obj::ZulipRequest, db, opts)
+function process_remove(obj::ZulipRequest, db, channel, ts, opts)
     @debug "remove"
     m = match(r"remove\s+(.*)", obj.data)
     m === nothing && return "No scheduled messages were removed"
@@ -38,6 +38,8 @@ function process_remove(obj::ZulipRequest, db, opts)
         id = tryparse(Int, str_id)
         id === nothing && continue
         delete(db, TimedMessage, (:id => id, :msg_sender_id => obj.message.sender_id))
+        tmsg = TimedMessage(id, ts, ts, Message("", "", "", obj.message.sender_id, ""))
+        put!(channel, (tmsg, -1))
     end
     return "Messages were removed from the schedule"
 end
@@ -123,6 +125,6 @@ function process_reminder(obj::ZulipRequest, db, channel, ts, opts)
     tmsg = TimedMessage(ts, exects, msg)
     tmsg = insert(db, tmsg)
     @debug tmsg
-    put!(channel, tmsg)
+    put!(channel, (tmsg, 1))
     "Message is scheduled on $(Dates.format(exects0, "yyyy-mm-dd HH:MM:SS z"))"
 end
