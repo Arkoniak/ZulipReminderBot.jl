@@ -82,19 +82,32 @@ function zparse_absolute(msg, exects)
     msg = m[2]
     exects = DateTime(m[1])
 
-    rexptm = r"^:?([0-9]{2}):?\s*(.*)"ms
+    rexptm = r"^([0-9]{2}):?\s*(.*)"ms
+    rexptm1 = r"^([0-9]{1}):?\s*(.*)"ms
+
     m = match(rexptm, msg)
-    m === nothing && return true, msg, exects
+    if m === nothing 
+        m = match(rexptm1, msg)
+        m === nothing && return false, msg, exects
+    end
     msg = m[2]
     exects += Hour(parse(Int, m[1]))
 
+    rexptm = r"^:?([0-9]{2}):?\s*(.*)"ms
+    rexptm1 = r"^:?([0-9]{2}):?\s*(.*)"ms
     m = match(rexptm, msg)
-    m === nothing && return true, msg, exects
+    if m === nothing 
+        m = match(rexptm1, msg)
+        m === nothing && return false, msg, exects
+    end
     msg = m[2]
     exects += Minute(parse(Int, m[1]))
 
     m = match(rexptm, msg)
-    m === nothing && return true, msg, exects
+    if m === nothing 
+        m = match(rexptm1, msg)
+        m === nothing && return false, msg, exects
+    end
     msg = m[2]
     exects += Second(parse(Int, m[1]))
 
