@@ -1,0 +1,2 @@
+module TestIgnoreCase
+end # module

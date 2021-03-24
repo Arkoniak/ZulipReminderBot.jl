@@ -111,7 +111,7 @@ function process_reminder(obj::ZulipRequest, db, channel, ts, opts)
     else
         ""
     end
-    content *= msg
+    content *= gde == :me ? "**Reminder**: " * msg : msg
 
     content = base64encode(content)
     msg = if obj.message.type == "stream" && gde == :here
