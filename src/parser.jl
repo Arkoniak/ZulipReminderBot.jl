@@ -26,10 +26,10 @@ end
 ########################################
 
 function zparse_mehere(msg)
-    rexp = r"^(me|here)\s+(.*)"ms
+    rexp = r"^(me|here)\s+(.*)"msi
     m = match(rexp, msg)
     m === nothing && return :me, msg
-    if m[1] == "me"
+    if lowercase(m[1]) == "me"
         return :me, m[2]
     else
         return :here, m[2]
@@ -38,12 +38,12 @@ end
 
 function zparse_relative(msg, exects)
     rexps = [
-             r"^\s*([0-9]+)\s+(months?)\s*(.*)"ms,
-             r"^\s*([0-9]+)\s+(weeks?)\s*(.*)"ms,
-             r"^\s*([0-9]+)\s+(days?)\s*(.*)"ms,
-             r"^\s*([0-9]+)\s+(hours?)\s*(.*)"ms,
-             r"^\s*([0-9]+)\s+(minutes?|min)\s*(.*)"ms,
-             r"^\s*([0-9]+)\s+(seconds?|sec)\s*(.*)"ms,
+             r"^\s*([0-9]+)\s+(months?)\s*(.*)"msi,
+             r"^\s*([0-9]+)\s+(weeks?)\s*(.*)"msi,
+             r"^\s*([0-9]+)\s+(days?)\s*(.*)"msi,
+             r"^\s*([0-9]+)\s+(hours?)\s*(.*)"msi,
+             r"^\s*([0-9]+)\s+(minutes?|min)\s*(.*)"msi,
+             r"^\s*([0-9]+)\s+(seconds?|sec)\s*(.*)"msi,
             ]
     matched = false
     while true
@@ -76,42 +76,59 @@ function zparse_relative(msg, exects)
 end
 
 function zparse_absolute(msg, exects)
-    rexpdt = r"^\s*([0-9]{4}-[0-9]{2}-[0-9]{2})[ T]?\s*(.*)"ms
+    rexpdt = r"^\s*([0-9]{4}-[0-9]{2}-[0-9]{2})(.*)"ms
     m = match(rexpdt, msg)
     m === nothing && return false, msg, exects
     msg = m[2]
-    exects = DateTime(m[1])
-
-    rexptm = r"^([0-9]{2}):?\s*(.*)"ms
-    rexptm1 = r"^([0-9]{1}):?\s*(.*)"ms
-
-    m = match(rexptm, msg)
-    if m === nothing 
-        m = match(rexptm1, msg)
-        m === nothing && return false, msg, exects
+    try
+        exects = DateTime(m[1])
+    catch
+        return false, msg, exects
     end
-    msg = m[2]
-    exects += Hour(parse(Int, m[1]))
-
-    rexptm = r"^:?([0-9]{2}):?\s*(.*)"ms
-    rexptm1 = r"^:?([0-9]{2}):?\s*(.*)"ms
-    m = match(rexptm, msg)
-    if m === nothing 
-        m = match(rexptm1, msg)
-        m === nothing && return false, msg, exects
+    if msg[1] == '\n'
+        msg = strip(msg)
+        return true, msg, exects
     end
-    msg = m[2]
-    exects += Minute(parse(Int, m[1]))
-
-    m = match(rexptm, msg)
-    if m === nothing 
-        m = match(rexptm1, msg)
-        m === nothing && return false, msg, exects
+    if msg[1] == ' ' || msg[1] == 'T'
+        msg = msg[2:end]
+    else
+        return false, msg, exects
     end
-    msg = m[2]
-    exects += Second(parse(Int, m[1]))
 
-    return true, msg, exects
+    rexptm = r"^([0-2][0-9]):([0-5][0-9]):([0-5][0-9])\s+(.*)"ms
+    m = match(rexptm, msg)
+    if m !== nothing
+        hh = parse(Int, m[1])
+        0 <= hh <= 23 || return false, msg, exects
+        mm = parse(Int, m[2])
+        0 <= mm <= 59 || return false, msg, exects
+        ss = parse(Int, m[3])
+        0 <= ss <= 59 || return false, msg, exects
+        exects += Hour(hh) + Minute(mm) + Second(ss)
+        return true, m[4], exects
+    end
+
+    rexptm = r"^([0-2][0-9]):([0-5][0-9])\s+(.*)"ms
+    m = match(rexptm, msg)
+    if m !== nothing
+        hh = parse(Int, m[1])
+        0 <= hh <= 23 || return false, msg, exects
+        mm = parse(Int, m[2])
+        0 <= mm <= 59 || return false, msg, exects
+        exects += Hour(hh) + Minute(mm)
+        return true, m[3], exects
+    end
+
+    rexptm = r"^([0-2][0-9])\s+(.*)"ms
+    m = match(rexptm, msg)
+    if m !== nothing
+        hh = parse(Int, m[1])
+        0 <= hh <= 23 || return false, msg, exects
+        exects += Hour(hh)
+        return true, m[2], exects
+    end
+
+    return true, strip(msg), exects
 end
 
 function zparse(msg, exects = Dates.now())
@@ -129,7 +146,7 @@ end
 ########################################
 
 function narrow(msg)
-    return ZulipOpts[].baseep * "/#narrow/stream/$(msg.stream_id)-$(HTTP.escape(msg.display_recipient))/topic/$(HTTP.escape(msg.subject))/near/$(msg.id)"
+    return ZulipOpts[].baseep * "/#narrow/stream/$(msg.stream_id)-$(HTTP.escapeuri(msg.display_recipient))/topic/$(HTTP.escapeuri(msg.subject))/near/$(msg.id)"
 end
 
 function startswithnarrow(txt)
