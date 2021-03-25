@@ -38,12 +38,12 @@ end
 
 function zparse_relative(msg, exects)
     rexps = [
-             r"^\s*([0-9]+)\s+(months?)\s*(.*)"msi,
-             r"^\s*([0-9]+)\s+(weeks?)\s*(.*)"msi,
-             r"^\s*([0-9]+)\s+(days?)\s*(.*)"msi,
-             r"^\s*([0-9]+)\s+(hours?)\s*(.*)"msi,
-             r"^\s*([0-9]+)\s+(minutes?|min)\s*(.*)"msi,
-             r"^\s*([0-9]+)\s+(seconds?|sec)\s*(.*)"msi,
+             r"^\s*([+-]?[0-9]+)\s+(months?)\s*(.*)"msi,
+             r"^\s*([+-]?[0-9]+)\s+(weeks?)\s*(.*)"msi,
+             r"^\s*([+-]?[0-9]+)\s+(days?)\s*(.*)"msi,
+             r"^\s*([+-]?[0-9]+)\s+(hours?)\s*(.*)"msi,
+             r"^\s*([+-]?[0-9]+)\s+(minutes?|min)\s*(.*)"msi,
+             r"^\s*([+-]?[0-9]+)\s+(seconds?|sec)\s*(.*)"msi,
             ]
     matched = false
     while true

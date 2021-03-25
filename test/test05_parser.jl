@@ -6,6 +6,8 @@ using Test
 using Dates
 using Base64
 using TimeZones
+using StableRNGs
+using StatsBase
 
 import DBInterface
 
@@ -74,8 +76,14 @@ end
     H = (["4 hour", "4 hours", "4 HOURS"], Hour(4))
     M = (["5 minute", "5 min", "5 minutes", "5 MIN"], Minute(5))
     S = (["6 second", "6 sec", "6 seconds", "6 SEC"], Second(6))
+    MSN = (["-1 month", "-1 months", "-1 Month"], Month(-1))
+    WN = (["-2 week", "-2 weeks", "-2 WEEK"], Week(-2))
+    DN = (["-3 day", "-3 days", "-3 DAY"], Day(-3))
+    HN = (["-4 hour", "-4 hours", "-4 HOURS"], Hour(-4))
+    MN = (["-5 minute", "-5 min", "-5 minutes", "-5 MIN"], Minute(-5))
+    SN = (["-6 second", "-6 sec", "-6 seconds", "-6 SEC"], Second(-6))
     
-    full = [MS, W, D, H, M, S]
+    full = [MS, W, D, H, M, S, MSN, WN, DN, HN, MN, SN]
     @testset "Test for i=$i" for i in 1:length(full)
         @testset "Test for $x" for x in full[i][1]
             msg = "" * x * "\nHello"
@@ -115,31 +123,26 @@ end
         end
     end
 
-    msg = ""
-    calcts = deepcopy(ts)
-    for el in full
-        msg *= el[1][1]
-        calcts += el[2]
+    combs = [full[1:6], reverse(full[1:6]), full[7:12], reverse(full[7:12])]
+    rng = StableRNG(2021)
+    for _ in 1:100
+        push!(combs, sample(rng, full, 6, replace = false))
     end
-    msg *= "\nHello"
-    gde, tp, msg, exects = zparse(msg, ts)
-    @test gde == :me
-    @test tp == :relative
-    @test msg == "Hello"
-    @test exects == calcts
-    
-    msg = ""
-    calcts = deepcopy(ts)
-    for el in reverse(full)
-        msg *= el[1][1]
-        calcts += el[2]
+
+    for comb in combs
+        msg = ""
+        calcts = deepcopy(ts)
+        for el in comb
+            msg *= el[1][1]
+            calcts += el[2]
+        end
+        msg *= "\nHello"
+        gde, tp, msg, exects = zparse(msg, ts)
+        @test gde == :me
+        @test tp == :relative
+        @test msg == "Hello"
+        @test exects == calcts
     end
-    msg *= "\nHello"
-    gde, tp, msg, exects = zparse(msg, ts)
-    @test gde == :me
-    @test tp == :relative
-    @test msg == "Hello"
-    @test exects == calcts
 end
 
 @testset "process reminders" begin
