@@ -75,7 +75,7 @@ Currently following commands are supported
 
 1. `<where> <when> <what>`: set a reminder. 
     - `where` is optional, should be either `me` or `here`. In latter case bot sends a message to the topic where reminder was set. If `where` is omitted reminder bot sends message privately to the person who set the reminder.
-    - `when` can be either in relative form `X days Y hours Z minutes` or in an absolute form `2020-10-01 23:15:00`. In relative forms single or plural form of `month`, `week`, `day`, `hour`, `minute`, `second` are allowed. In absolute form date is mandatory, but hours, minute or second part can be omitted.
+    - `when` can be either in relative form `X days Y hours Z minutes` or in an absolute form `2020-10-01 23:15:00`. In relative forms single or plural form of `month`, `week`, `day`, `hour`, `minute`, `second` are allowed as well as positive and negative values of `X`, `Y`, `Z`. In absolute form date is mandatory, but hours, minute or second part can be omitted.
     - `what` is a message that should be shown by reminder bot.
 2. `list`: show all current reminders of a user.
 3. `remove <id>`: remove your reminder with the id `<id>`. Multiple `<id>` can be given comma separated.
@@ -84,6 +84,7 @@ Currently following commands are supported
 
 Examples of usage:
 - `me 2 days drink coffee` (send private message in two hours)
+- `1 day -2 hour redo things` (send message tomorrow, two hours earlier than today's current time)
 - `2021-12-31 12:00 Happy New Year` (send private message on the midnight of 31 December 2021)
 - `here 1 hour Say something` (send message to the stream in 1 hour)
     """
