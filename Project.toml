@@ -1,7 +1,7 @@
 name = "ZulipReminderBot"
 uuid = "11775a2c-a7af-4390-9adb-bea59bbba815"
 authors = ["Andrey Oskin <skoffer@arkoniak.com>"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -18,18 +18,22 @@ StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 TimeZones = "f269a46b-ccf7-5d73-abea-4c690281aa53"
 
 [compat]
-ODBC = "1.0"
-StructTypes = "1.4"
-HTTP = "0.9"
-MiniLoggers = "0.1"
 DBInterface = "2.4"
-Strapping = "1.2"
+HTTP = "0.9"
 JSON3 = "1.7"
+MiniLoggers = "0.1"
+ODBC = "1.0"
 Setfield = "0.7"
+StableRNGs = "1"
+Strapping = "1.2"
+StructTypes = "1.4"
 TimeZones = "1.5"
+StatsBase = "0.33"
 
 [extras]
+StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [targets]
-test = ["Test"]
+test = ["Test", "StableRNGs", "StatsBase"]
